@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Consulta</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #020202;
+            text-transform: uppercase;
+            font-size: 42px;
+            margin: 0;
+            line-height: 47px;
+            letter-spacing: 2px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px;
+        }
+        .btn {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .button-slider {
+            display: flex;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+        }
+        .button-slider button {
+            margin-right: 10px;
+            margin-left: 10px;
+        }
+        #back {
+            background-color: #CD6A8C;
+        }
+        #cursoButtons {
+            padding-top: 10px;
+        }
+        #Botonera {
+            width: 100vw;
+            margin-left: -8px;
+            background-color: azure;
+            padding-bottom: 10px;
+            padding-top: 10px;
+        }
+        #userList {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 20px;
+        }
+        #userCount {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+            text-align: left;
+        }
+        .table-container {
+            max-height: 300px;
+            overflow-y: auto;
+            width: 80%;  /* Adjusted to leave space for the count text */
+        }
+    </style>
+</head>
+<body id="back">
+    <h1>Consulta de Categorías y Cursos</h1>
+    <div id="Botonera">
+        <div class="btn-group" id="categoriaButtons">
+            <!-- Botones de categorías se generarán dinámicamente aquí -->
+        </div>
+        
+        <div class="button-container" id="cursoContainer">
+            <div class="button-slider" id="cursoButtons">
+                <!-- Curso buttons will be inserted here -->
+            </div>
+        </div>
+    </div>
+    <div id="userList">
+        <h2 id="userCount">Usuarios del Curso</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                    </tr>
+                </thead>
+                <tbody id="users">
+                    <!-- Lista de usuarios se generará dinámicamente aquí -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        $(document).ready(function() {
+            // Función para cargar las categorías como botones
+            function cargarCategorias(categorias) {
+                var btnGroup = $('#categoriaButtons');
+                btnGroup.empty();
+                
+                categorias.forEach(function(categoria) {
+                    var btn = $('<button class="btn btn-categoria"></button>').text(categoria);
+                    btn.click(function() {
+                        // Cuando se hace clic en una categoría
+                        var categoriaId = categoria;
+                        $.ajax({
+                            url: "{% url 'Consulta' %}",
+                            type: "POST",
+                            data: {
+                                'categoria_id': categoriaId,
+                                'csrfmiddlewaretoken': '{{ csrf_token }}'
+                            },
+                            success: function(response) {
+                                cargarCursos(response.cursos, response.usuarios, response.curso);
+                            }
+                        });
+                    });
+                    btnGroup.append(btn);
+                });
+                
+                // Cargar cursos y usuarios para la primera categoría por defecto
+                if (categorias.length > 0) {
+                    var primeraCategoria = categorias[0];
+                    $.ajax({
+                        url: "{% url 'Consulta' %}",
+                        type: "POST",
+                        data: {
+                            'categoria_id': primeraCategoria,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(response) {
+                            cargarCursos(response.cursos, response.usuarios, response.curso);
+                        }
+                    });
+                }
+            }
+            
+            // Función para cargar los cursos como botones y usuarios del primer curso
+            function cargarCursos(cursos, usuarios, primer_curso) {
+                var cursoContainer = $('#cursoContainer');
+                var cursoButtons = $('#cursoButtons');
+                cursoButtons.empty();
+                
+                cursos.forEach(function(curso) {
+                    var btn = $('<button class="btn btn-curso"></button>').text(curso);
+                    btn.click(function() {
+                        // Cuando se hace clic en un curso
+                        var cursoId = curso;
+                        $.ajax({
+                            url: "{% url 'usuarios_por_curso' %}",
+                            type: "POST",
+                            data: {
+                                'curso_id': cursoId,
+                                'csrfmiddlewaretoken': '{{ csrf_token }}'
+                            },
+                            success: function(response) {
+                                mostrarUsuarios(response.usuarios, curso);
+                            }
+                        });
+                    });
+                    cursoButtons.append(btn);
+                });
+                
+                // Mostrar usuarios del primer curso por defecto
+                if (primer_curso && usuarios.length > 0) {
+                    mostrarUsuarios(usuarios, primer_curso);
+                }
+            }
+            
+            // Función para mostrar la lista de usuarios
+            function mostrarUsuarios(usuarios, curso) {
+                var usersContainer = $('#users');
+                usersContainer.empty();
+                
+                usuarios.forEach(function(usuario) {
+                    var row = $('<tr></tr>');
+                    var idCell = $('<td></td>').text(usuario.id);
+                    var nameCell = $('<td></td>').text(usuario.nombre);
+                    row.append(idCell);
+                    row.append(nameCell);
+                    usersContainer.append(row);
+                });
+                
+                // Actualizar el contador de usuarios
+                var userCount = $('#userCount');
+                userCount.text(`El curso ${curso} posee ${usuarios.length} usuarios registrados`);
+            }
+            
+            // Inicializar la página cargando las categorías
+            var categorias = {{ categorias|safe }};
+            cargarCategorias(categorias);
+        });
+    </script>
+</body>
+</html>
